@@ -1,9 +1,11 @@
 import React from 'react'
+import SuperHeader from './Components/header/SuperHeader'
+
 
 const page = () => {
   return (
     <div>
-      <p className='text-3xl text-indigo-500'> REACT</p>
+      
     </div>
   )
 }
