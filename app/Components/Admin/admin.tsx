@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Lock, Mail, AlertCircle, CheckCircle } from 'lucide-react'
 import Lgitink from 'next/link'
+import Link from 'next/link'
 import Dashboard from './dashboard'
 
 interface User {
