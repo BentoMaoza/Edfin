@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react'
+import { Mail, Lock, Building2, FileText, Phone, MapPin, User } from 'lucide-react'
 import Link from 'next/link'
 
 const SchoolSignup = () => {
@@ -12,52 +12,43 @@ const SchoolSignup = () => {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess(false)
-    setIsLoading(true)
-
-    // Validações básicas
-    if (!schoolName.trim()) {
-      setError('Nome da escola é obrigatório')
-      setIsLoading(false)
-      return
-    }
-    if (!nuit.trim()) {
-      setError('NUIT é obrigatório')
-      setIsLoading(false)
-      return
-    }
-    if (!email.includes('@')) {
-      setError('Email inválido')
-      setIsLoading(false)
-      return
-    }
-    if (password.length < 6) {
-      setError('Senha deve ter no mínimo 6 caracteres')
-      setIsLoading(false)
-      return
-    }
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem')
-      setIsLoading(false)
-      return
-    }
-
-    await new Promise((r) => setTimeout(r, 500))
+    setLoading(true)
 
     try {
-      const existing = JSON.parse(localStorage.getItem('pendingSchools') || '[]')
-      if (existing.some((s: any) => s.email === email || s.nuit === nuit)) {
-        setError('Já existe uma solicitação com este email ou NUIT')
-        setIsLoading(false)
+      if (!schoolName || !nuit || !email || !password || !contactPerson || !phone) {
+        setError('Todos os campos são obrigatórios')
+        setLoading(false)
         return
+      }
+
+      if (phone.length < 7) {
+        setError('Telefone inválido (mínimo 7 dígitos)')
+        setLoading(false)
+        return
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email)) {
+        setError('Email inválido')
+        setLoading(false)
+        return
+      }
+
+      const existingSchools = localStorage.getItem('pendingSchools')
+      if (existingSchools) {
+        const schools = JSON.parse(existingSchools)
+        if (schools.some((s: any) => s.email === email)) {
+          setError('Este email já está registado')
+          setLoading(false)
+          return
+        }
       }
 
       const newSchool = {
@@ -69,13 +60,14 @@ const SchoolSignup = () => {
         phone,
         email,
         password,
-        createdAt: new Date().toISOString().split('T')[0],
+        createdAt: new Date().toISOString(),
         validated: false,
         active: false,
       }
 
-      existing.push(newSchool)
-      localStorage.setItem('pendingSchools', JSON.stringify(existing))
+      const schools = existingSchools ? JSON.parse(existingSchools) : []
+      schools.push(newSchool)
+      localStorage.setItem('pendingSchools', JSON.stringify(schools))
 
       setSuccess(true)
       setSchoolName('')
@@ -85,102 +77,170 @@ const SchoolSignup = () => {
       setPhone('')
       setEmail('')
       setPassword('')
-      setConfirmPassword('')
 
-      setTimeout(() => setSuccess(false), 3000)
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 2000)
     } catch (err) {
-      setError('Erro ao enviar solicitação. Tente novamente.')
+      setError('Erro ao registar. Tente novamente.')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4'>
-      <div className='bg-white/10 backdrop-blur-md bg-clip-padding rounded-xl shadow-2xl p-8 max-w-lg w-full border border-white/20'>
-        <div className='text-center mb-6'>
-          <div className='inline-block bg-green-600 rounded-full p-3 mb-4'>
-            <User className='text-white' size={28} />
+    <div className='relative min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center px-4 py-8'>
+      <div className='absolute top-20 left-10 w-40 h-40 bg-blue-200/30 rounded-full blur-3xl'></div>
+      <div className='absolute bottom-20 right-10 w-52 h-52 bg-blue-300/20 rounded-full blur-3xl'></div>
+
+      <div className='relative z-10 w-full max-w-2xl'>
+        <div className='bg-white rounded-2xl shadow-2xl overflow-hidden'>
+          <div className='bg-gradient-to-r from-blue-600 to-blue-800 text-white px-8 py-8 text-center'>
+            <div className='flex justify-center mb-4'>
+              <Building2 size={40} />
+            </div>
+            <h1 className='text-3xl font-bold'>Registar Escola</h1>
+            <p className='text-blue-100 mt-2'>Crie uma conta para sua instituição educacional</p>
           </div>
-          <h1 className='text-2xl font-bold text-white mb-1'>Cadastro de Escola</h1>
-          <p className='text-gray-200 text-sm'>Solicite acesso ao sistema — a administração aprovará.</p>
+
+          <div className='px-8 py-8'>
+            {success && (
+              <div className='mb-6 p-4 bg-green-50 border border-green-200 rounded-lg'>
+                <p className='text-green-800 font-semibold'>Registado com sucesso!</p>
+                <p className='text-green-700 text-sm mt-1'>Redirecionando para login...</p>
+              </div>
+            )}
+
+            {error && (
+              <div className='mb-6 p-4 bg-red-50 border border-red-200 rounded-lg'>
+                <p className='text-red-800 font-semibold'>Erro</p>
+                <p className='text-red-700 text-sm'>{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSignup} className='space-y-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Nome da Escola *</label>
+                <div className='relative'>
+                  <Building2 className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='text'
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    placeholder='Escola Exemplo'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>NUIT *</label>
+                <div className='relative'>
+                  <FileText className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='text'
+                    value={nuit}
+                    onChange={(e) => setNuit(e.target.value)}
+                    placeholder='123456789'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Endereço</label>
+                <div className='relative'>
+                  <MapPin className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='text'
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder='Rua, Cidade, País'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Pessoa de Contato *</label>
+                <div className='relative'>
+                  <User className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='text'
+                    value={contactPerson}
+                    onChange={(e) => setContactPerson(e.target.value)}
+                    placeholder='Nome completo'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Telefone *</label>
+                <div className='relative'>
+                  <Phone className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='tel'
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 12))}
+                    placeholder='843123456'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Email *</label>
+                <div className='relative'>
+                  <Mail className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='email'
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder='escola@exemplo.com'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Senha *</label>
+                <div className='relative'>
+                  <Lock className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='password'
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder='••••••••'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <button
+                type='submit'
+                disabled={loading}
+                className='w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 mt-2'
+              >
+                {loading ? 'Registando...' : 'Registar Escola'}
+              </button>
+            </form>
+
+            <div className='mt-6 pt-6 border-t border-gray-200'>
+              <p className='text-center text-gray-600 text-sm'>
+                Já tem conta?{' '}
+                <Link href='/login' className='text-blue-600 hover:text-blue-700 font-semibold'>
+                  Faça Login
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div className='mb-4 p-3 bg-red-900/30 border border-red-700/40 rounded flex items-start gap-3'>
-            <AlertCircle className='text-red-200' size={18} />
-            <div className='text-sm text-red-200'>{error}</div>
-          </div>
-        )}
-
-        {success && (
-          <div className='mb-4 p-3 bg-green-900/30 border border-green-700/40 rounded flex items-start gap-3'>
-            <CheckCircle className='text-green-200' size={18} />
-            <div className='text-sm text-green-200'>Solicitação enviada! Aguarde aprovação do admin.</div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-gray-200 mb-1'>Nome da Escola</label>
-            <input value={schoolName} onChange={(e) => setSchoolName(e.target.value)} className='w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' required />
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-gray-200 mb-1'>NUIT</label>
-            <input value={nuit} onChange={(e) => setNuit(e.target.value)} className='w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' required />
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-gray-200 mb-1'>Endereço</label>
-            <input value={address} onChange={(e) => setAddress(e.target.value)} className='w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' />
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-gray-200 mb-1'>Pessoa de Contato</label>
-            <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className='w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' />
-          </div>
-
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            <div>
-              <label className='block text-sm font-medium text-gray-200 mb-1'>Telefone</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} className='w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' />
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-200 mb-1'>Email</label>
-              <div className='relative'>
-                <Mail className='absolute left-3 top-3 text-gray-400' size={16} />
-                <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} className='w-full pl-10 px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' required />
-              </div>
-            </div>
-          </div>
-
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            <div>
-              <label className='block text-sm font-medium text-gray-200 mb-1'>Senha</label>
-              <div className='relative'>
-                <Lock className='absolute left-3 top-3 text-gray-400' size={16} />
-                <input type='password' value={password} onChange={(e) => setPassword(e.target.value)} className='w-full pl-10 px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' required />
-              </div>
-            </div>
-            <div>
-              <label className='block text-sm font-medium text-gray-200 mb-1'>Confirmar Senha</label>
-              <div className='relative'>
-                <Lock className='absolute left-3 top-3 text-gray-400' size={16} />
-                <input type='password' value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className='w-full pl-10 px-3 py-2 border rounded-md focus:ring-2 focus:ring-green-500 bg-white/6 text-white' required />
-              </div>
-            </div>
-          </div>
-
-          <button type='submit' disabled={isLoading} className={`w-full py-2 rounded-md text-white font-semibold ${isLoading ? 'bg-gray-400' : 'bg-green-600 hover:bg-green-700'}`}>
-            {isLoading ? 'Enviando...' : 'Enviar Solicitação'}
-          </button>
-        </form>
-
-        <div className='mt-4 text-center text-sm'>
-          <p className='text-gray-200'>Já tens conta? <Link href='/login' className='text-blue-400 font-semibold'>Entrar</Link></p>
+        <div className='mt-6 text-center text-blue-100 text-sm'>
+          <p>© 2026 Sistema de Gestão Escolar. Todos os direitos reservados.</p>
         </div>
-
       </div>
     </div>
   )

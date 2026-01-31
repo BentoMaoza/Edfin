@@ -1,151 +1,164 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Mail, Lock, CheckCircle, AlertCircle, LogOut } from 'lucide-react'
+import React, { useState } from 'react'
+import { Mail, Lock, School, Eye, EyeOff } from 'lucide-react'
+import Link from 'next/link'
 
 const SchoolLogin = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [school, setSchool] = useState<any | null>(null)
+  const [error, setError] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
-  useEffect(() => {
-    // tentar restaurar sessão
-    const saved = localStorage.getItem('schoolLoggedIn')
-    if (saved) {
-      try {
-        setSchool(JSON.parse(saved))
-      } catch (_) {}
-    }
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    setSuccess(false)
-    setIsLoading(true)
-
-    await new Promise((r) => setTimeout(r, 400))
+    setLoading(true)
 
     try {
-      const stored = JSON.parse(localStorage.getItem('pendingSchools') || '[]')
-      const found = stored.find((s: any) => s.email === email && s.password === password)
-
-      if (!found) {
-        setError('Credenciais inválidas')
-        setIsLoading(false)
+      if (!email || !password) {
+        setError('Email e senha são obrigatórios')
+        setLoading(false)
         return
       }
 
-      if (!found.validated) {
-        setError('Conta ainda não validada pelo administrador')
-        setIsLoading(false)
+      const schoolsData = localStorage.getItem('pendingSchools')
+      if (!schoolsData) {
+        setError('Nenhuma escola registada')
+        setLoading(false)
         return
       }
 
-      if (!found.active) {
-        setError('Conta desativada. Contate o administrador')
-        setIsLoading(false)
+      const schools = JSON.parse(schoolsData)
+      const school = schools.find((s: any) => s.email === email && s.password === password)
+
+      if (!school) {
+        setError('Email ou senha incorretos')
+        setLoading(false)
         return
       }
 
-      // login bem-sucedido
+      if (!school.validated) {
+        setError('Sua escola ainda não foi validada pelo administrador. Aguarde aprovação.')
+        setLoading(false)
+        return
+      }
+
+      if (!school.active) {
+        setError('Sua conta foi desativada. Contate o administrador.')
+        setLoading(false)
+        return
+      }
+
+      localStorage.setItem('schoolLoggedIn', JSON.stringify({
+        id: school.id,
+        schoolName: school.schoolName,
+        email: school.email,
+        nuit: school.nuit,
+      }))
+
       setSuccess(true)
-      setSchool(found)
-      localStorage.setItem('schoolLoggedIn', JSON.stringify(found))
-      setEmail('')
-      setPassword('')
-      setTimeout(() => setSuccess(false), 2000)
+      setTimeout(() => {
+        window.location.href = '/school/dashboard'
+      }, 1500)
     } catch (err) {
-      setError('Erro ao autenticar. Tente novamente.')
+      setError('Erro ao fazer login. Tente novamente.')
+      console.error(err)
+    } finally {
+      setLoading(false)
     }
-
-    setIsLoading(false)
-  }
-
-  const handleLogout = () => {
-    setSchool(null)
-    localStorage.removeItem('schoolLoggedIn')
-  }
-
-  if (school) {
-    return (
-      <div className='min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4'>
-        <div className='bg-white/10 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full border border-white/20'>
-          <div className='text-center mb-6'>
-            <div className='inline-block bg-blue-600 rounded-full p-3 mb-4'>
-              <CheckCircle className='text-white' size={28} />
-            </div>
-            <h2 className='text-2xl font-bold text-white'>Bem-vindo, {school.schoolName}</h2>
-            <p className='text-gray-200 text-sm mt-1'>Acesso concedido</p>
-          </div>
-
-          <div className='mb-4'>
-            <p className='text-sm text-gray-100'>NUIT: <span className='font-medium'>{school.nuit}</span></p>
-            <p className='text-sm text-gray-100'>Email: <span className='font-medium'>{school.email}</span></p>
-            <p className='text-sm text-gray-100'>Registrada em: <span className='font-medium'>{school.createdAt}</span></p>
-          </div>
-
-          <button onClick={handleLogout} className='w-full mt-4 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2 rounded-md'>
-            <LogOut size={16} />
-            Sair
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4'>
-      <div className='bg-white/10 backdrop-blur-md rounded-xl shadow-2xl p-8 max-w-md w-full border border-white/20'>
-        <div className='text-center mb-6'>
-          <div className='inline-block bg-blue-600 rounded-full p-3 mb-4'>
-            <Mail className='text-white' size={28} />
+    <div className='relative min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center px-4 py-8'>
+      <div className='absolute top-20 right-10 w-40 h-40 bg-blue-200/30 rounded-full blur-3xl'></div>
+      <div className='absolute bottom-20 left-10 w-52 h-52 bg-blue-300/20 rounded-full blur-3xl'></div>
+
+      <div className='relative z-10 w-full max-w-md'>
+        <div className='bg-white rounded-2xl shadow-2xl overflow-hidden'>
+          <div className='bg-gradient-to-r from-blue-600 to-blue-800 text-white px-8 py-8 text-center'>
+            <div className='flex justify-center mb-4'>
+              <School size={40} />
+            </div>
+            <h1 className='text-3xl font-bold'>Login da Escola</h1>
+            <p className='text-blue-100 mt-2'>Acesse o painel de controle</p>
           </div>
-          <h1 className='text-2xl font-bold text-white mb-1'>Login — Escola</h1>
-          <p className='text-gray-200 text-sm'>Entre com seu email e senha</p>
+
+          <div className='px-8 py-8'>
+            {success && (
+              <div className='mb-6 p-4 bg-green-50 border border-green-200 rounded-lg'>
+                <p className='text-green-800 font-semibold'>Login realizado com sucesso!</p>
+                <p className='text-green-700 text-sm mt-1'>Redirecionando para o painel...</p>
+              </div>
+            )}
+
+            {error && (
+              <div className='mb-6 p-4 bg-red-50 border border-red-200 rounded-lg'>
+                <p className='text-red-800 font-semibold'>Erro de autenticação</p>
+                <p className='text-red-700 text-sm'>{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} className='space-y-4'>
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Email *</label>
+                <div className='relative'>
+                  <Mail className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type='email'
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder='escola@exemplo.com'
+                    className='w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className='block text-sm font-medium text-gray-700 mb-1'>Senha *</label>
+                <div className='relative'>
+                  <Lock className='absolute left-3 top-3.5 text-gray-400' size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder='••••••••'
+                    className='w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+                  />
+                  <button
+                    type='button'
+                    onClick={() => setShowPassword(!showPassword)}
+                    className='absolute right-3 top-3.5 text-gray-400 hover:text-gray-600'
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type='submit'
+                disabled={loading}
+                className='w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 mt-6'
+              >
+                {loading ? 'A fazer login...' : 'Fazer Login'}
+              </button>
+            </form>
+
+            <div className='mt-6 pt-6 border-t border-gray-200'>
+              <p className='text-center text-gray-600 text-sm'>
+                Ainda não tem conta?{' '}
+                <Link href='/signup' className='text-blue-600 hover:text-blue-700 font-semibold'>
+                  Registar
+                </Link>
+              </p>
+            </div>
+          </div>
         </div>
 
-        {error && (
-          <div className='mb-4 p-3 bg-red-900/30 border border-red-700/40 rounded flex items-start gap-3'>
-            <AlertCircle className='text-red-200' size={18} />
-            <div className='text-sm text-red-200'>{error}</div>
-          </div>
-        )}
-
-        {success && (
-          <div className='mb-4 p-3 bg-green-900/30 border border-green-700/40 rounded flex items-start gap-3'>
-            <CheckCircle className='text-green-200' size={18} />
-            <div className='text-sm text-green-200'>Autenticado com sucesso</div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className='space-y-4'>
-          <div>
-            <label className='block text-sm font-medium text-gray-200 mb-1'>Email</label>
-            <div className='relative'>
-              <Mail className='absolute left-3 top-3 text-gray-300' size={16} />
-              <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} className='w-full pl-10 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 bg-white/6 text-white' required />
-            </div>
-          </div>
-
-          <div>
-            <label className='block text-sm font-medium text-gray-200 mb-1'>Senha</label>
-            <div className='relative'>
-              <Lock className='absolute left-3 top-3 text-gray-300' size={16} />
-              <input type='password' value={password} onChange={(e) => setPassword(e.target.value)} className='w-full pl-10 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 bg-white/6 text-white' required />
-            </div>
-          </div>
-
-          <button type='submit' disabled={isLoading} className={`w-full py-2 rounded-md text-white font-semibold ${isLoading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
-            {isLoading ? 'Autenticando...' : 'Entrar'}
-          </button>
-        </form>
-
-        <div className='mt-4 text-center text-sm'>
-          <p className='text-gray-200'>Ainda não solicitou acesso? Crie uma conta em breve: <span className='font-semibold'>/signup</span></p>
+        <div className='mt-6 text-center text-blue-100 text-sm'>
+          <p>© 2026 Sistema de Gestão Escolar. Todos os direitos reservados.</p>
         </div>
       </div>
     </div>

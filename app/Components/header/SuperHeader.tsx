@@ -44,9 +44,9 @@ const SuperHeader = () => {
           </nav>
 
           {/* CTA Button - Desktop */}
-          <button className='hidden md:block ml-6 px-6 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-300'>
+          <Link href='/signup' className='hidden md:inline-block ml-6 px-6 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-300'>
             Começar
-          </button>
+          </Link>
 
           {/* Mobile menu button */}
           <button
@@ -74,9 +74,9 @@ const SuperHeader = () => {
                 {link.label}
               </Link>
             ))}
-            <button className='w-full mt-4 px-3 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-300'>
+            <Link href='/signup' onClick={() => setIsOpen(false)} className='w-full mt-4 px-3 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-300'>
               Começar
-            </button>
+            </Link>
           </nav>
         )}
       </div>

@@ -5,7 +5,7 @@ import SuperHeader from './Components/header/SuperHeader'
 const page = () => {
   return (
     <div>
-      
+      <SuperHeader />
     </div>
   )
 }

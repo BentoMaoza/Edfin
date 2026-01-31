@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {cn} from "@/lib/utils"
-import SuperHeader from "./Components/header/SuperHeader";
 
 
 const geistSans = Geist({
@@ -35,7 +34,6 @@ export default function RootLayout({
       >
        
         {children}
-        <SuperHeader />
      
       </body>
     </html>

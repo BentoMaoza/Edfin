@@ -145,12 +145,7 @@ const AdminLogin = () => {
           </button>
         </form>
 
-        {/* Demo Info */}
-        <div className='mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200'>
-          <p className='text-xs text-blue-700 font-semibold mb-2'>📝 Credenciais de Teste:</p>
-          <p className='text-xs text-blue-600'>Usuário: <span className='font-mono font-semibold'>Bento</span></p>
-          <p className='text-xs text-blue-600'>Senha: <span className='font-mono font-semibold'>Edfin</span></p>
-        </div>
+       
 
         {/* Footer */}
         <p className='text-center text-xs text-gray-500 mt-6'>
