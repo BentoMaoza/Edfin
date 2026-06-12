@@ -7,15 +7,21 @@ interface PaymentsFormProps {
   onClose: () => void
   onAdd: (payment: any) => void
   students: any[]
+  schoolId: number | null
+  schoolEmail?: string | null
+  schoolName?: string | null
+  nuit?: string | null
 }
 
-const PaymentsForm: React.FC<PaymentsFormProps> = ({ onClose, onAdd, students }) => {
+const PaymentsForm: React.FC<PaymentsFormProps> = ({ onClose, onAdd, students, schoolId, schoolEmail, schoolName, nuit }) => {
   const [studentId, setStudentId] = useState('')
   const [query, setQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [amount, setAmount] = useState('')
   const [type, setType] = useState<'tuition' | 'transport' | 'registration'>('tuition')
   const [paymentMethod, setPaymentMethod] = useState<'dinheiro' | 'carteira' | 'banco'>('dinheiro')
+  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  const [year, setYear] = useState(new Date().getFullYear())
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -37,25 +43,47 @@ const PaymentsForm: React.FC<PaymentsFormProps> = ({ onClose, onAdd, students })
       return
     }
 
+    if (!month || !year) {
+      setError('Especifique o mês e ano do pagamento')
+      setIsLoading(false)
+      return
+    }
+
     try {
       const student = students.find(s => s.id === parseInt(studentId))
-      const newPayment = {
-        id: Date.now(),
-        studentId: parseInt(studentId),
-        studentName: student?.name || 'Desconhecido',
-        amount: amountNum,
-        type,
-        paymentMethod,
-        date: new Date().toISOString().split('T')[0],
+      const response = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: parseInt(studentId),
+          student,
+          amount: amountNum,
+          type,
+          paymentMethod,
+          month,
+          year,
+          schoolId,
+          schoolEmail,
+          schoolName,
+          nuit,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Erro ao registar pagamento')
       }
 
+      const newPayment = await response.json()
       onAdd(newPayment)
       setStudentId('')
       setAmount('')
       setType('tuition')
       setPaymentMethod('dinheiro')
+      setMonth(new Date().getMonth() + 1)
+      setYear(new Date().getFullYear())
     } catch (err) {
-      setError('Erro ao registar pagamento')
+      setError(err instanceof Error ? err.message : 'Erro ao registar pagamento')
       console.error(err)
     } finally {
       setIsLoading(false)
@@ -176,6 +204,37 @@ const PaymentsForm: React.FC<PaymentsFormProps> = ({ onClose, onAdd, students })
             </select>
           </div>
 
+          <div className='grid grid-cols-2 gap-4'>
+            <div>
+              <label className='block text-sm font-medium text-gray-700 mb-1'>Mês *</label>
+              <select
+                value={month}
+                onChange={(e) => setMonth(parseInt(e.target.value))}
+                className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition appearance-none'
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                  <option key={m} value={m}>
+                    {new Date(2024, m - 1).toLocaleString('pt-PT', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className='block text-sm font-medium text-gray-700 mb-1'>Ano *</label>
+              <select
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value))}
+                className='w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition appearance-none'
+              >
+                {[2024, 2025, 2026, 2027].map(y => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div className='bg-blue-50 p-4 rounded-lg'>
             <p className='text-sm text-gray-700'>
               <strong>Resumo:</strong>
@@ -188,6 +247,11 @@ const PaymentsForm: React.FC<PaymentsFormProps> = ({ onClose, onAdd, students })
             {amount && (
               <p className='text-sm text-gray-600'>
                 Montante: <strong>{parseInt(amount).toLocaleString('pt-BR')} MT</strong>
+              </p>
+            )}
+            {month && year && (
+              <p className='text-sm text-gray-600'>
+                Período: <strong>{new Date(year, month - 1).toLocaleString('pt-PT', { month: 'long', year: 'numeric' })}</strong>
               </p>
             )}
           </div>

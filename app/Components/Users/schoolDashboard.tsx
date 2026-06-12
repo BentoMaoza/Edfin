@@ -94,6 +94,26 @@ const SchoolDashboard = () => {
     }
   }, [])
 
+  useEffect(() => {
+    if (!school) return
+
+    const loadBackendStudents = async () => {
+      try {
+        const response = await fetch(`/api/students?schoolId=${school.id}`)
+        if (response.ok) {
+          const backendStudents = await response.json()
+          if (Array.isArray(backendStudents) && backendStudents.length > 0) {
+            setStudents(backendStudents)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load backend students:', error)
+      }
+    }
+
+    loadBackendStudents()
+  }, [school])
+
   // Guardar alunos quando mudam
   useEffect(() => {
     if (school) {
@@ -115,9 +135,32 @@ const SchoolDashboard = () => {
     }
   }, [reports, school])
 
-  const handleAddStudent = (newStudent: Student) => {
-    setStudents([...students, newStudent])
-    setShowStudentForm(false)
+  const handleAddStudent = async (newStudent: Student) => {
+    try {
+      const response = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newStudent,
+          schoolId: school?.id,
+          schoolEmail: school?.email,
+          schoolName: school?.schoolName,
+          nuit: school?.nuit,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create student')
+      }
+
+      const savedStudent = await response.json()
+      setStudents([...students, savedStudent])
+      setShowStudentForm(false)
+    } catch (error) {
+      console.error('Error saving student:', error)
+      setStudents([...students, newStudent])
+      setShowStudentForm(false)
+    }
   }
 
   const handleAddPayment = (newPayment: Payment) => {
@@ -692,6 +735,10 @@ const SchoolDashboard = () => {
           onClose={() => setShowPaymentForm(false)}
           onAdd={handleAddPayment}
           students={students}
+          schoolId={school?.id ?? null}
+          schoolEmail={school?.email ?? null}
+          schoolName={school?.schoolName ?? null}
+          nuit={school?.nuit ?? null}
         />
       )}
     </div>

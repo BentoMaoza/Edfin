@@ -1,0 +1,91 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum PaymentType {
+  tuition
+  transport
+  registration
+}
+
+enum PaymentMethod {
+  dinheiro
+  carteira
+  banco
+}
+
+enum ReportPeriod {
+  daily
+  weekly
+}
+
+model School {
+  id            Int       @id @default(autoincrement())
+  schoolName    String
+  nuit          String
+  address       String?
+  contactPerson String
+  phone         String
+  email         String    @unique
+  password      String
+  validated     Boolean   @default(false)
+  active        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  students      Student[]
+  payments      Payment[]
+  reports       Report[]
+}
+
+model Student {
+  id                 Int     @id @default(autoincrement())
+  school             School  @relation(fields: [schoolId], references: [id])
+  schoolId           Int
+  name               String
+  class              String
+  guardianName       String
+  phone              String
+  tuition            Int
+  transport          Int
+  usesTransport      Boolean
+  registrationFee    Boolean @default(false)
+  paidTuitionMonths  Json    @default("[]")
+  paidTransportMonths Json   @default("[]")
+  createdAt          DateTime @default(now())
+
+  payments           Payment[]
+}
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  school        School        @relation(fields: [schoolId], references: [id])
+  schoolId      Int
+  student       Student       @relation(fields: [studentId], references: [id])
+  studentId     Int
+  studentName   String
+  amount        Int
+  year          Int
+  month         Int
+  type          PaymentType
+  paymentMethod PaymentMethod
+  date          DateTime
+  createdAt     DateTime      @default(now())
+}
+
+model Report {
+  id            Int          @id @default(autoincrement())
+  school        School       @relation(fields: [schoolId], references: [id])
+  schoolId      Int
+  title         String
+  generatedAt   DateTime
+  period        ReportPeriod
+  totalStudents Int
+  paidStudents  Int
+  payments      Json?
+  createdAt     DateTime     @default(now())
+}
