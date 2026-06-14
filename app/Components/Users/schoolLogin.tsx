@@ -24,47 +24,23 @@ const SchoolLogin = () => {
         return
       }
 
-      const schoolsData = localStorage.getItem('pendingSchools')
-      if (!schoolsData) {
-        setError('Nenhuma escola registada')
-        setLoading(false)
-        return
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Email ou senha incorretos')
       }
-
-      const schools = JSON.parse(schoolsData)
-      const school = schools.find((s: any) => s.email === email && s.password === password)
-
-      if (!school) {
-        setError('Email ou senha incorretos')
-        setLoading(false)
-        return
-      }
-
-      if (!school.validated) {
-        setError('Sua escola ainda não foi validada pelo administrador. Aguarde aprovação.')
-        setLoading(false)
-        return
-      }
-
-      if (!school.active) {
-        setError('Sua conta foi desativada. Contate o administrador.')
-        setLoading(false)
-        return
-      }
-
-      localStorage.setItem('schoolLoggedIn', JSON.stringify({
-        id: school.id,
-        schoolName: school.schoolName,
-        email: school.email,
-        nuit: school.nuit,
-      }))
 
       setSuccess(true)
       setTimeout(() => {
         window.location.href = '/school/dashboard'
       }, 1500)
     } catch (err) {
-      setError('Erro ao fazer login. Tente novamente.')
+      setError(err instanceof Error ? err.message : 'Erro ao fazer login. Tente novamente.')
       console.error(err)
     } finally {
       setLoading(false)

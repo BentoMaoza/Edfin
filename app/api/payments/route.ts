@@ -1,6 +1,19 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 
+const normalizeMonths = (value: unknown): number[] => {
+  if (Array.isArray(value)) return value.map((item) => Number(item)).filter((item) => !Number.isNaN(item))
+  try {
+    const parsed = JSON.parse(String(value))
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((item: unknown) => Number(item))
+      .filter((item) => !Number.isNaN(item))
+  } catch {
+    return []
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json()
@@ -123,32 +136,31 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Update student paidTuitionMonths/paidTransportMonths arrays
+    // Update student payment state for months or registration fee
     if (student) {
+      const updateData: any = {}
+
       if (type === 'tuition') {
-        const paidMonths = Array.isArray(student.paidTuitionMonths)
-          ? student.paidTuitionMonths
-          : JSON.parse(student.paidTuitionMonths as string || '[]')
-        const monthKey = `${month}/${year}`
-        if (!paidMonths.includes(monthKey)) {
-          paidMonths.push(monthKey)
-          await prisma.student.update({
-            where: { id: studentIdNumber },
-            data: { paidTuitionMonths: paidMonths },
-          })
+        const paidMonths = normalizeMonths(student.paidTuitionMonths)
+        if (!paidMonths.includes(month)) {
+          paidMonths.push(month)
+          updateData.paidTuitionMonths = paidMonths
         }
       } else if (type === 'transport') {
-        const paidMonths = Array.isArray(student.paidTransportMonths)
-          ? student.paidTransportMonths
-          : JSON.parse(student.paidTransportMonths as string || '[]')
-        const monthKey = `${month}/${year}`
-        if (!paidMonths.includes(monthKey)) {
-          paidMonths.push(monthKey)
-          await prisma.student.update({
-            where: { id: studentIdNumber },
-            data: { paidTransportMonths: paidMonths },
-          })
+        const paidMonths = normalizeMonths(student.paidTransportMonths)
+        if (!paidMonths.includes(month)) {
+          paidMonths.push(month)
+          updateData.paidTransportMonths = paidMonths
         }
+      } else if (type === 'registration') {
+        updateData.registrationFee = true
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await prisma.student.update({
+          where: { id: studentIdNumber },
+          data: updateData,
+        })
       }
     }
 
@@ -182,6 +194,54 @@ export async function GET(req: NextRequest) {
     console.error('Payment fetch error:', error)
     return NextResponse.json(
       { error: 'Failed to fetch payments' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const idParam = searchParams.get('id')
+
+    if (!idParam) {
+      return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 })
+    }
+
+    const paymentId = parseInt(idParam, 10)
+    if (Number.isNaN(paymentId)) {
+      return NextResponse.json({ error: 'Invalid payment id' }, { status: 400 })
+    }
+
+    const payment = await prisma.payment.findUnique({ where: { id: paymentId } })
+    if (!payment) {
+      return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    }
+
+    const student = await prisma.student.findUnique({ where: { id: payment.studentId } })
+    if (!student) {
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 })
+    }
+
+    const updateData: any = {}
+    if (payment.type === 'tuition') {
+      updateData.paidTuitionMonths = normalizeMonths(student.paidTuitionMonths).filter((month) => month !== payment.month)
+    } else if (payment.type === 'transport') {
+      updateData.paidTransportMonths = normalizeMonths(student.paidTransportMonths).filter((month) => month !== payment.month)
+    } else if (payment.type === 'registration') {
+      updateData.registrationFee = false
+    }
+
+    await prisma.$transaction([
+      prisma.payment.delete({ where: { id: paymentId } }),
+      prisma.student.update({ where: { id: student.id }, data: updateData }),
+    ])
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('Payment delete error:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete payment' },
       { status: 500 }
     )
   }

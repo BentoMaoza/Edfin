@@ -28,6 +28,31 @@ export async function GET(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing id parameter' }, { status: 400 })
+    }
+
+    const studentId = parseInt(id, 10)
+
+    await prisma.$transaction([
+      prisma.payment.deleteMany({ where: { studentId } }),
+      prisma.student.delete({ where: { id: studentId } }),
+    ])
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('Student delete error:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete student' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json()

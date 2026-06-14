@@ -1,11 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 
 const SuperHeader = () => {
   const [isOpen, setIsOpen] = useState(false)
+  const pathname = usePathname()
 
   const toggleMenu = () => {
     setIsOpen(!isOpen)
@@ -19,39 +21,40 @@ const SuperHeader = () => {
   ]
 
   return (
-    <header className='w-full bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg'>
+    <header className='sticky top-0 z-50 w-full border-b border-white/10 bg-gradient-to-r from-blue-700/95 via-blue-700/90 to-blue-900/95 shadow-[0_12px_40px_rgba(15,23,42,0.25)] backdrop-blur-xl'>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-        <div className='flex justify-between items-center h-16 md:h-20'>
-          
-          {/* Logo */}
+        <div className='flex h-16 items-center justify-between md:h-20'>
           <Link href='/' className='flex-shrink-0'>
-            <span className='text-2xl md:text-3xl font-bold text-white hover:text-blue-100 transition-colors duration-300'>
+            <span className='inline-flex items-center gap-3 text-2xl font-black tracking-tight text-white transition-transform duration-300 hover:scale-[1.02] md:text-3xl'>
+              
               Edfin
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className='hidden md:flex space-x-8 ml-auto'>
+          <nav className='ml-auto hidden items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 md:flex'>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className='text-white font-medium hover:text-blue-100 transition-colors duration-300 text-sm lg:text-base'
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 lg:text-base ${
+                  pathname === link.href
+                    ? 'bg-white text-blue-700 shadow-md'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
               >
                 {link.label}
               </Link>
             ))}
+
+            <Link href='/signup' className='ml-2 inline-flex items-center rounded-full bg-white px-5 py-2 font-semibold text-blue-700 shadow-lg shadow-black/10 transition-all duration-300 hover:-translate-y-0.5 hover:bg-blue-50'>
+              Começar
+            </Link>
           </nav>
 
-          {/* CTA Button - Desktop */}
-          <Link href='/signup' className='hidden md:inline-block ml-6 px-6 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-300'>
-            Começar
-          </Link>
-
-          {/* Mobile menu button */}
           <button
             onClick={toggleMenu}
-            className='md:hidden text-white focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-lg p-2'
+            className='rounded-xl p-2 text-white transition hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/40 md:hidden'
+            aria-label='Abrir menu'
           >
             {isOpen ? (
               <X size={24} />
@@ -61,20 +64,21 @@ const SuperHeader = () => {
           </button>
         </div>
 
-        {/* Mobile Navigation */}
         {isOpen && (
-          <nav className='md:hidden pb-4 border-t border-blue-500'>
+          <nav className='md:hidden pb-4 pt-2'>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className='block px-3 py-2 rounded-md text-white hover:bg-blue-700 transition-colors duration-300 font-medium'
+                className={`block rounded-2xl px-4 py-3 font-medium transition-colors duration-300 ${
+                  pathname === link.href ? 'bg-white text-blue-700' : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
                 onClick={() => setIsOpen(false)}
               >
                 {link.label}
               </Link>
             ))}
-            <Link href='/signup' onClick={() => setIsOpen(false)} className='w-full mt-4 px-3 py-2 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors duration-300'>
+            <Link href='/signup' onClick={() => setIsOpen(false)} className='mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 font-semibold text-blue-700 shadow-lg shadow-black/10 transition hover:bg-blue-50'>
               Começar
             </Link>
           </nav>

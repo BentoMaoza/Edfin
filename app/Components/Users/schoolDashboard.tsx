@@ -27,6 +27,8 @@ interface Payment {
   type: 'tuition' | 'transport' | 'registration'
   paymentMethod: 'dinheiro' | 'carteira' | 'banco'
   date: string
+  month: number
+  year: number
 }
 
 interface Report {
@@ -41,6 +43,7 @@ interface Report {
 
 const SchoolDashboard = () => {
   const [school, setSchool] = useState<any>(null)
+  const [isLoadingSchool, setIsLoadingSchool] = useState(true)
   const [view, setView] = useState<'home' | 'students' | 'payments' | 'reports'>('home')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
@@ -51,89 +54,46 @@ const SchoolDashboard = () => {
   const [payments, setPayments] = useState<Payment[]>([])
   const [reports, setReports] = useState<Report[]>([])
 
-  // Carregar dados da escola ao fazer login
+  const loadSchoolData = async (schoolId: number) => {
+    const [studentsResponse, paymentsResponse, reportsResponse] = await Promise.all([
+      fetch(`/api/students?schoolId=${schoolId}`),
+      fetch(`/api/payments?schoolId=${schoolId}`),
+      fetch(`/api/reports?schoolId=${schoolId}`),
+    ])
+
+    const [studentsData, paymentsData, reportsData] = await Promise.all([
+      studentsResponse.ok ? studentsResponse.json() : [],
+      paymentsResponse.ok ? paymentsResponse.json() : [],
+      reportsResponse.ok ? reportsResponse.json() : [],
+    ])
+
+    setStudents(Array.isArray(studentsData) ? studentsData : [])
+    setPayments(Array.isArray(paymentsData) ? paymentsData : [])
+    setReports(Array.isArray(reportsData) ? reportsData : [])
+  }
+
   useEffect(() => {
-    const saved = localStorage.getItem('schoolLoggedIn')
-    if (saved) {
+    const loadSchool = async () => {
       try {
-        const schoolData = JSON.parse(saved)
+        const response = await fetch('/api/auth/me', { cache: 'no-store' })
+        if (!response.ok) {
+          window.location.href = '/login'
+          return
+        }
+
+        const schoolData = await response.json()
         setSchool(schoolData)
-        
-        // Carregar alunos da escola e migrar formato antigo se necessário
-        const schoolStudents = localStorage.getItem(`students_${schoolData.id}`)
-        if (schoolStudents) {
-          try {
-            const parsed = JSON.parse(schoolStudents) as Student[]
-            const migrated = parsed.map((s: any) => {
-              if (!s.paidTuitionMonths) {
-                s.paidTuitionMonths = s.paidTuition ? Array.from({ length: 12 }, (_, i) => i + 1) : []
-              }
-              if (!s.paidTransportMonths) {
-                s.paidTransportMonths = s.paidTransport ? Array.from({ length: 12 }, (_, i) => i + 1) : []
-              }
-              return s as Student
-            })
-            setStudents(migrated)
-          } catch (_) {
-            setStudents(JSON.parse(schoolStudents))
-          }
-        }
-        
-        // Carregar pagamentos da escola
-        const schoolPayments = localStorage.getItem(`payments_${schoolData.id}`)
-        if (schoolPayments) {
-          setPayments(JSON.parse(schoolPayments))
-        }
-        
-        // Carregar relatórios da escola
-        const schoolReports = localStorage.getItem(`reports_${schoolData.id}`)
-        if (schoolReports) {
-          setReports(JSON.parse(schoolReports))
-        }
-      } catch (_) {}
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!school) return
-
-    const loadBackendStudents = async () => {
-      try {
-        const response = await fetch(`/api/students?schoolId=${school.id}`)
-        if (response.ok) {
-          const backendStudents = await response.json()
-          if (Array.isArray(backendStudents) && backendStudents.length > 0) {
-            setStudents(backendStudents)
-          }
-        }
+        await loadSchoolData(schoolData.id)
       } catch (error) {
-        console.error('Failed to load backend students:', error)
+        console.error('Failed to load school session:', error)
+        window.location.href = '/login'
+      } finally {
+        setIsLoadingSchool(false)
       }
     }
 
-    loadBackendStudents()
-  }, [school])
-
-  // Guardar alunos quando mudam
-  useEffect(() => {
-    if (school) {
-      localStorage.setItem(`students_${school.id}`, JSON.stringify(students))
-    }
-  }, [students, school])
-
-  // Guardar pagamentos quando mudam
-  useEffect(() => {
-    if (school) {
-      localStorage.setItem(`payments_${school.id}`, JSON.stringify(payments))
-    }
-  }, [payments, school])
-
-  // Guardar relatórios quando mudam
-  useEffect(() => {
-    if (school) {
-      localStorage.setItem(`reports_${school.id}`, JSON.stringify(reports))
-    }
-  }, [reports, school])
+    loadSchool()
+  }, [])
 
   const handleAddStudent = async (newStudent: Student) => {
     try {
@@ -153,18 +113,15 @@ const SchoolDashboard = () => {
         throw new Error('Failed to create student')
       }
 
-      const savedStudent = await response.json()
-      setStudents([...students, savedStudent])
+      await loadSchoolData(school.id)
       setShowStudentForm(false)
     } catch (error) {
       console.error('Error saving student:', error)
-      setStudents([...students, newStudent])
-      setShowStudentForm(false)
     }
   }
 
-  const handleAddPayment = (newPayment: Payment) => {
-    setPayments([...payments, newPayment])
+  const handleAddPayment = async (newPayment: Payment) => {
+    setPayments(prev => [newPayment, ...prev])
     
     // Extrair o mês do ano (1-12) da data
     const paymentDate = new Date(newPayment.date)
@@ -173,16 +130,15 @@ const SchoolDashboard = () => {
     const updatedStudents = students.map(s => {
       if (s.id === newPayment.studentId) {
         const newStudent = { ...s }
+
         if (newPayment.type === 'tuition') {
-          // Adicionar mês aos pagos se não estiver já
-          if (!newStudent.paidTuitionMonths.includes(month)) {
-            newStudent.paidTuitionMonths = [...newStudent.paidTuitionMonths, month]
+          if (!newStudent.paidTuitionMonths.includes(newPayment.month)) {
+            newStudent.paidTuitionMonths = [...newStudent.paidTuitionMonths, newPayment.month]
           }
         }
         if (newPayment.type === 'transport') {
-          // Adicionar mês aos pagos se não estiver já
-          if (!newStudent.paidTransportMonths.includes(month)) {
-            newStudent.paidTransportMonths = [...newStudent.paidTransportMonths, month]
+          if (!newStudent.paidTransportMonths.includes(newPayment.month)) {
+            newStudent.paidTransportMonths = [...newStudent.paidTransportMonths, newPayment.month]
           }
         }
         if (newPayment.type === 'registration') {
@@ -194,20 +150,70 @@ const SchoolDashboard = () => {
     })
     setStudents(updatedStudents)
     setShowPaymentForm(false)
+
+    if (school?.id) {
+      await loadSchoolData(school.id)
+    }
   }
 
-  const handleDeleteStudent = (id: number) => {
-    setStudents(students.filter(s => s.id !== id))
-    setPayments(payments.filter(p => p.studentId !== id))
-    setSelectedStudent(null)
+  const handleDeleteStudent = async (id: number) => {
+    try {
+      const response = await fetch(`/api/students?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete student')
+      }
+
+      setSelectedStudent(null)
+      if (school?.id) {
+        await loadSchoolData(school.id)
+      }
+    } catch (error) {
+      console.error('Error deleting student:', error)
+    }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('schoolLoggedIn')
+  const handleDeletePayment = async (paymentId: number) => {
+    try {
+      const response = await fetch(`/api/payments?id=${paymentId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete payment')
+      }
+
+      setPayments((prev) => prev.filter((payment) => payment.id !== paymentId))
+      if (school?.id) {
+        await loadSchoolData(school.id)
+      }
+    } catch (error) {
+      console.error('Error deleting payment:', error)
+    }
+  }
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
     window.location.href = '/login'
   }
 
   // Função para verificar se um aluno deve algo
+  const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+  const formatMonthList = (months: number[]) => {
+    const sorted = [...new Set(months.filter((m) => Number.isInteger(m) && m >= 1 && m <= 12))].sort((a, b) => a - b)
+    return sorted.length > 0 ? sorted.map((m) => MONTH_LABELS[m - 1]).join(', ') : 'Nenhum'
+  }
+
+  const getMissingMonths = (student: Student, type: 'tuition' | 'transport') => {
+    const paidMonths = type === 'tuition' ? student.paidTuitionMonths : student.paidTransportMonths
+    const allMonths = Array.from({ length: 12 }, (_, index) => index + 1)
+    return allMonths.filter((month) => !paidMonths.includes(month))
+  }
+
   const studentOwes = (student: Student): boolean => {
     // Se não pagou matrícula, deve
     if (!student.registrationFee) return true
@@ -241,7 +247,30 @@ const SchoolDashboard = () => {
       payments: includedPayments,
     }
 
-    setReports([newReport, ...reports])
+    const saveReport = async () => {
+      try {
+        const response = await fetch('/api/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...newReport,
+            schoolId: school?.id,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to create report')
+        }
+
+        if (school?.id) {
+          await loadSchoolData(school.id)
+        }
+      } catch (error) {
+        console.error('Error creating report:', error)
+      }
+    }
+
+    saveReport()
   }
 
   const downloadReport = (r: Report) => {
@@ -275,7 +304,7 @@ const SchoolDashboard = () => {
   const debtorStudents = students.filter(s => studentOwes(s))
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
 
-  if (!school) {
+  if (isLoadingSchool || !school) {
     return <div className='flex items-center justify-center h-screen bg-gradient-to-br from-blue-50 to-blue-100'><div className='text-gray-600'>Carregando...</div></div>
   }
 
@@ -627,19 +656,27 @@ const SchoolDashboard = () => {
                         {selectedStudent.usesTransport && <p><strong>Transporte:</strong> {selectedStudent.transport.toLocaleString('pt-BR')} MT</p>}
                       </div>
                       <hr />
-                      <div className='space-y-2'>
+                      <div className='space-y-3'>
                         <div className='flex items-center gap-2'>
                           {selectedStudent.registrationFee ? <CheckCircle size={18} className='text-green-600' /> : <AlertCircle size={18} className='text-red-600' />}
                           <span className='text-sm'><strong>Matrícula:</strong> {selectedStudent.registrationFee ? 'Paga' : 'Deve'}</span>
                         </div>
-                        <div className='flex items-center gap-2'>
-                          {selectedStudent.paidTuitionMonths.length === 12 ? <CheckCircle size={18} className='text-green-600' /> : <AlertCircle size={18} className='text-red-600' />}
-                          <span className='text-sm'><strong>Mensalidade:</strong> {selectedStudent.paidTuitionMonths.length}/12 meses</span>
+                        <div className='rounded-lg border border-blue-100 bg-blue-50 p-3'>
+                          <div className='flex items-center justify-between'>
+                            <span className='text-sm font-semibold text-blue-800'>Mensalidade</span>
+                            <span className='text-sm text-blue-700'>{selectedStudent.paidTuitionMonths.length}/12</span>
+                          </div>
+                          <p className='text-xs text-gray-600 mt-2'><strong>Pagos:</strong> {formatMonthList(selectedStudent.paidTuitionMonths)}</p>
+                          <p className='text-xs text-gray-600 mt-1'><strong>Faltam:</strong> {formatMonthList(getMissingMonths(selectedStudent, 'tuition'))}</p>
                         </div>
                         {selectedStudent.usesTransport && (
-                          <div className='flex items-center gap-2'>
-                            {selectedStudent.paidTransportMonths.length === 12 ? <CheckCircle size={18} className='text-green-600' /> : <AlertCircle size={18} className='text-red-600' />}
-                            <span className='text-sm'><strong>Transporte:</strong> {selectedStudent.paidTransportMonths.length}/12 meses</span>
+                          <div className='rounded-lg border border-orange-100 bg-orange-50 p-3'>
+                            <div className='flex items-center justify-between'>
+                              <span className='text-sm font-semibold text-orange-800'>Transporte</span>
+                              <span className='text-sm text-orange-700'>{selectedStudent.paidTransportMonths.length}/12</span>
+                            </div>
+                            <p className='text-xs text-gray-600 mt-2'><strong>Pagos:</strong> {formatMonthList(selectedStudent.paidTransportMonths)}</p>
+                            <p className='text-xs text-gray-600 mt-1'><strong>Faltam:</strong> {formatMonthList(getMissingMonths(selectedStudent, 'transport'))}</p>
                           </div>
                         )}
                       </div>
@@ -671,8 +708,16 @@ const SchoolDashboard = () => {
                           {p.type === 'tuition' ? 'Mensalidade' : p.type === 'transport' ? 'Transporte' : 'Matrícula'} • {p.paymentMethod === 'dinheiro' ? 'Dinheiro' : p.paymentMethod === 'carteira' ? 'Carteira Móvel' : 'Banco'} • {p.date}
                         </p>
                       </div>
-                      <div className='text-right'>
+                      <div className='flex items-center gap-2'>
                         <p className='font-bold text-blue-600 text-lg'>{p.amount.toLocaleString('pt-BR')} MT</p>
+                        <button
+                          type='button'
+                          onClick={() => handleDeletePayment(p.id)}
+                          className='text-red-600 hover:text-red-800 transition'
+                          title='Apagar pagamento'
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
                     </div>
                   ))}

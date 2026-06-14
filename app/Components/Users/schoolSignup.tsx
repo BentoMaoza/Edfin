@@ -41,33 +41,24 @@ const SchoolSignup = () => {
         return
       }
 
-      const existingSchools = localStorage.getItem('pendingSchools')
-      if (existingSchools) {
-        const schools = JSON.parse(existingSchools)
-        if (schools.some((s: any) => s.email === email)) {
-          setError('Este email já está registado')
-          setLoading(false)
-          return
-        }
-      }
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          schoolName,
+          nuit,
+          address,
+          contactPerson,
+          phone,
+          email,
+          password,
+        }),
+      })
 
-      const newSchool = {
-        id: Date.now(),
-        schoolName,
-        nuit,
-        address,
-        contactPerson,
-        phone,
-        email,
-        password,
-        createdAt: new Date().toISOString(),
-        validated: false,
-        active: false,
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao registar escola')
       }
-
-      const schools = existingSchools ? JSON.parse(existingSchools) : []
-      schools.push(newSchool)
-      localStorage.setItem('pendingSchools', JSON.stringify(schools))
 
       setSuccess(true)
       setSchoolName('')
@@ -82,7 +73,7 @@ const SchoolSignup = () => {
         window.location.href = '/login'
       }, 2000)
     } catch (err) {
-      setError('Erro ao registar. Tente novamente.')
+      setError(err instanceof Error ? err.message : 'Erro ao registar. Tente novamente.')
       console.error(err)
     } finally {
       setLoading(false)

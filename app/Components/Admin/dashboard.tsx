@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useEffect } from 'react'
 import { LogOut, CheckSquare, X, Eye, Users, Clock, UserX, UserCheck, Menu } from 'lucide-react'
 
 export interface School {
@@ -21,28 +22,38 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
-  const [users, setUsers] = useState<School[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('pendingSchools')
-      return saved ? JSON.parse(saved) : []
-    }
-    return []
-  })
+  const [users, setUsers] = useState<School[]>([])
 
-  const handleValidateUser = (id: number) => {
-    const updated = users.map(user =>
-      user.id === id ? { ...user, validated: true, active: true } : user
-    )
-    setUsers(updated)
-    localStorage.setItem('pendingSchools', JSON.stringify(updated))
+  const loadSchools = async () => {
+    const response = await fetch('/api/admin/schools', { cache: 'no-store' })
+    if (!response.ok) {
+      throw new Error('Failed to load schools')
+    }
+
+    const data = await response.json()
+    setUsers(Array.isArray(data) ? data : [])
   }
 
-  const handleToggleUserStatus = (id: number) => {
-    const updated = users.map(user =>
-      user.id === id ? { ...user, active: !user.active } : user
-    )
-    setUsers(updated)
-    localStorage.setItem('pendingSchools', JSON.stringify(updated))
+  useEffect(() => {
+    loadSchools().catch(error => console.error('Failed to load admin schools:', error))
+  }, [])
+
+  const handleValidateUser = async (id: number) => {
+    await fetch('/api/admin/schools', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, validated: true, active: true }),
+    })
+    await loadSchools()
+  }
+
+  const handleToggleUserStatus = async (id: number, currentActive?: boolean) => {
+    await fetch('/api/admin/schools', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, active: !currentActive }),
+    })
+    await loadSchools()
   }
 
   const unvalidatedCount = users.filter(u => !u.validated).length
@@ -158,7 +169,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                           Validar
                         </button>
                       )}
-                      <button onClick={() => handleToggleUserStatus(s.id)} className={`flex items-center gap-1 px-3 py-1 rounded text-sm ${s.active ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                      <button onClick={() => handleToggleUserStatus(s.id, s.active)} className={`flex items-center gap-1 px-3 py-1 rounded text-sm ${s.active ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                         {s.active ? (
                           <>
                             <X size={14} />
@@ -195,9 +206,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
                   <div className='flex gap-2 mt-3'>
                     {!selected.validated && (
-                      <button onClick={() => { handleValidateUser(selected.id); setSelected({ ...selected, validated: true, active: true }) }} className='bg-green-600 text-white px-3 py-1 rounded'>Validar</button>
+                      <button onClick={async () => { await handleValidateUser(selected.id); setSelected({ ...selected, validated: true, active: true }) }} className='bg-green-600 text-white px-3 py-1 rounded'>Validar</button>
                     )}
-                    <button onClick={() => { handleToggleUserStatus(selected.id); setSelected({ ...selected, active: !selected.active }) }} className={`px-3 py-1 rounded ${selected.active ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}>
+                      <button onClick={async () => { await handleToggleUserStatus(selected.id, selected.active); setSelected({ ...selected, active: !selected.active }) }} className={`px-3 py-1 rounded ${selected.active ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'}`}>
                       {selected.active ? 'Desativar' : 'Ativar'}
                     </button>
                   </div>
