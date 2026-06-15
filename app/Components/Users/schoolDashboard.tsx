@@ -705,7 +705,7 @@ const SchoolDashboard = () => {
                       <div className='flex-1'>
                         <p className='font-semibold text-gray-800'>{p.studentName}</p>
                         <p className='text-sm text-gray-500'>
-                          {p.type === 'tuition' ? 'Mensalidade' : p.type === 'transport' ? 'Transporte' : 'Matrícula'} • {p.paymentMethod === 'dinheiro' ? 'Dinheiro' : p.paymentMethod === 'carteira' ? 'Carteira Móvel' : 'Banco'} • {p.date}
+                          {p.type === 'tuition' ? 'Mensalidade' : p.type === 'transport' ? 'Transporte' : 'Matrícula'} • {p.paymentMethod === 'dinheiro' ? 'Dinheiro' : p.paymentMethod === 'carteira' ? 'Carteira Móvel' : 'Banco'} • {new Date(p.year, p.month - 1).toLocaleString('pt-PT', { month: 'long', year: 'numeric' })} • {p.date}
                         </p>
                       </div>
                       <div className='flex items-center gap-2'>

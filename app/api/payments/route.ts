@@ -19,9 +19,19 @@ export async function POST(req: NextRequest) {
     const payload = await req.json()
     const studentId = typeof payload.studentId === 'string' ? parseInt(payload.studentId, 10) : payload.studentId
     const { amount, type, paymentMethod, month, year } = payload
+    const amountNumber = Number(amount)
+    const monthNumber = Number(month)
+    const yearNumber = Number(year)
 
     // Validation
-    if (!studentId || !amount || !type || !paymentMethod || !month || !year) {
+    if (
+      !studentId ||
+      Number.isNaN(amountNumber) ||
+      !type ||
+      !paymentMethod ||
+      Number.isNaN(monthNumber) ||
+      Number.isNaN(yearNumber)
+    ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -108,8 +118,8 @@ export async function POST(req: NextRequest) {
     const existingPayment = await prisma.payment.findFirst({
       where: {
         studentId: studentIdNumber,
-        month,
-        year,
+        month: monthNumber,
+        year: yearNumber,
         type,
       },
     })
@@ -121,48 +131,43 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Create payment
-    const payment = await prisma.payment.create({
-      data: {
-        studentId: studentIdNumber,
-        studentName: student.name,
-        amount,
-        type,
-        paymentMethod,
-        month,
-        year,
-        schoolId: student.schoolId,
-        date: new Date(),
-      },
-    })
-
     // Update student payment state for months or registration fee
-    if (student) {
-      const updateData: any = {}
+    const updateData: any = {}
 
-      if (type === 'tuition') {
-        const paidMonths = normalizeMonths(student.paidTuitionMonths)
-        if (!paidMonths.includes(month)) {
-          paidMonths.push(month)
-          updateData.paidTuitionMonths = paidMonths
-        }
-      } else if (type === 'transport') {
-        const paidMonths = normalizeMonths(student.paidTransportMonths)
-        if (!paidMonths.includes(month)) {
-          paidMonths.push(month)
-          updateData.paidTransportMonths = paidMonths
-        }
-      } else if (type === 'registration') {
-        updateData.registrationFee = true
+    if (type === 'tuition') {
+      const paidMonths = normalizeMonths(student.paidTuitionMonths)
+      if (!paidMonths.includes(monthNumber)) {
+        paidMonths.push(monthNumber)
+        updateData.paidTuitionMonths = paidMonths
       }
-
-      if (Object.keys(updateData).length > 0) {
-        await prisma.student.update({
-          where: { id: studentIdNumber },
-          data: updateData,
-        })
+    } else if (type === 'transport') {
+      const paidMonths = normalizeMonths(student.paidTransportMonths)
+      if (!paidMonths.includes(monthNumber)) {
+        paidMonths.push(monthNumber)
+        updateData.paidTransportMonths = paidMonths
       }
+    } else if (type === 'registration') {
+      updateData.registrationFee = true
     }
+
+    const [payment] = await prisma.$transaction([
+      prisma.payment.create({
+        data: {
+          studentId: studentIdNumber,
+          studentName: student.name,
+          amount: amountNumber,
+          type,
+          paymentMethod,
+          month: monthNumber,
+          year: yearNumber,
+          schoolId: student.schoolId,
+          date: new Date(),
+        },
+      }),
+      ...(Object.keys(updateData).length > 0
+        ? [prisma.student.update({ where: { id: studentIdNumber }, data: updateData })]
+        : []),
+    ])
 
     return NextResponse.json(payment, { status: 201 })
   } catch (error) {

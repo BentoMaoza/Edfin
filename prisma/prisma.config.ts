@@ -3,7 +3,7 @@ import 'dotenv/config';
 const config = {
   datasource: {
     db: {
-      provider: process.env.DATABASE_PROVIDER ?? 'postgresql',
+      provider: 'sqlite',
       url: process.env.DATABASE_URL,
     },
   },
